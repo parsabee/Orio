@@ -1,0 +1,25 @@
+'devId',0
+'name','GeForce RTX 2060'
+'major',7
+'minor',5
+'clockRate',1680000
+'deviceOverlap',1
+'kernelExecTimeoutEnabled',1
+'totalGlobalMem',6219694080
+'totalConstMem',65536
+'memPitch',2147483647
+'textureAlignment',512
+'multiProcessorCount',30
+'sharedMemPerBlock',49152
+'regsPerBlock',65536
+'warpSize',32
+'maxThreadsPerBlock',1024
+'maxThreadsDim',(1024,1024,64)
+'maxGridSize',(2147483647,65535,65535)
+'integrated',0
+'canMapHostMemory',1
+'computeMode',0
+'maxTexture1D',131072
+'maxTexture2D',(131072,65536)
+'maxTexture3D',(16384,16384,16384)
+'concurrentKernels',1

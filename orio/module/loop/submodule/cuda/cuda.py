@@ -56,7 +56,7 @@ int main( void ) {
         fprintf( fp, "'clockRate',%d\n", 1147000 );
         fprintf( fp, "'deviceOverlap',%d\n", 1 );
         fprintf( fp, "'kernelExecTimeoutEnabled',%d\n", 0 );
-        fprintf( fp, "'totalGlobalMem',%lld\n", 5636292608 );
+        fprintf( fp, "'totalGlobalMem',%ld\n", 5636292608 );
         fprintf( fp, "'totalConstMem',%d\n", 65536 );
         fprintf( fp, "'memPitch',%d\n", 2147483647 );
         fprintf( fp, "'textureAlignment',%d\n", 512 );
@@ -143,8 +143,8 @@ class CUDA(orio.module.loop.submodule.submodule.SubModule):
             elif aname == BLOCKCOUNT:
                 if not isinstance(rhs, int) or rhs <= 0 or rhs > self.props['maxGridSize'][0]:
                     errors += 'line %s: %s must be a positive integer less than device limit of maxGridSize[0]=%s: %s\n' % (line_no, aname, self.props['maxGridSize'][0], rhs)
-                elif rhs % smcount != 0:
-                    errors += 'line %s: blockCount is not a multiple of SM count of %s: %s' % (line_no, smcount, rhs)
+                # elif rhs % smcount != 0:
+                #     errors += 'line %s: blockCount is not a multiple of SM count of %s: %s' % (line_no, smcount, rhs)
                 else:
                     blockCount = rhs
             elif aname == CB:

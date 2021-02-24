@@ -8,7 +8,7 @@ void ATAX(double* A, double* x, double* y, int NX, int NY) {
           param BC[]  = range(16,129,16);
           param UIF[] = range(1,6);
           param PL[]  = [16,48];
-	    param SC[]  = range(1,6);
+	      param SC[]  = range(2,4);
           param CFLAGS[] =['','-use_fast_math'];
         }
         def input_params {
@@ -22,7 +22,7 @@ void ATAX(double* A, double* x, double* y, int NX, int NY) {
           decl static double y[NY]     = 0;
         }
         def build {
-          arg build_command = 'nvcc -g -lineinfo -arch=sm_20 -O3 @CFLAGS';
+          arg build_command = 'nvcc -g -lineinfo -arch=sm_75 -O3 @CFLAGS';
         }
         def performance_counter {
           arg method = 'basic timer';

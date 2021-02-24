@@ -729,7 +729,7 @@ class TuningInfoGen:
                 if (not is_array) and (is_static or is_dynamic):
                     err('orio.main.tspec.tune_info: %s: static and dynamic types are only for arrays' % line_no)
 
-                if is_array and (not is_static) and (not is_dynamic):
+                if is_array and (not is_static) and (not is_dynamic) and (not is_managed):
                     err('orio.main.tspec.tune_info: %s: missing static/dynamic type for arrays variable' % line_no)
 
                 if not is_array:
@@ -956,7 +956,7 @@ class TuningInfoGen:
         build_info = {'build_cmd': 'gcc -O3', 'libs': ''}
         pcount_info = ('basic timer', 5, None, None)
         power_info = ('none', 5, None, None)
-        search_info = ('Exhaustive', -1, -1, False, [])
+        search_info = ('Exhaustive', -1, -1, False, False, [])
         pparam_info = ([], [])
         cmdline_info = ([], [])
         iparam_info = ([], [])

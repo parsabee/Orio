@@ -33,8 +33,8 @@ class Transformation(object):
       
       self.tinfo = tinfo
       if self.tinfo is not None and self.streamCount > 1:
-        ivarLists = [x for x in tinfo.ivar_decls if len(x[3])>0]
-        ivarListLengths = set(reduce(lambda acc,item: acc+item[3], ivarLists, []))
+        ivarLists = [x for x in tinfo.ivar_decls if len(x[4])>0]
+        ivarListLengths = set(reduce(lambda acc,item: acc+item[4], ivarLists, []))
         if len(ivarListLengths) > 1:
           raise Exception(('orio.module.loop.submodule.cuda.transformation: streaming for different-length arrays is not supported'))
       
@@ -43,9 +43,10 @@ class Transformation(object):
       self.model = {
         'inputsize':   IdentExp('n'),
         'isReduction': False,
-        'idents':      [],
+        'idents':      {},
         'scalars':     [],
         'arrays':      [],
+        'managed':     [],
         'rhs_arrays':  [],
         'lhss':        [],
         'intscalars':  [],
@@ -112,10 +113,14 @@ class Transformation(object):
         hostDecls = [ExpStmt(FunCallExp(IdentExp('cudaThreadSynchronize'), []))]
       else:
         hostDecls = [ExpStmt(FunCallExp(IdentExp('cudaDeviceSynchronize'), []))]
-      hostDecls += [
-        Comment('declare variables'),
-        VarDecl('double', ['*'+x[1] for x in self.model['idents']])
-      ]
+
+      if len(self.model['idents']) > 0:
+          hostDecls += [
+              Comment('declare variables')
+          ]
+          for id, did in self.model['idents']:
+              hostDecls.append(VarDecl(self.model['idents'][(id, did)], [did]))
+
       if len(intarrays)>0:
         hostDecls += [VarDecl('int', ['*'+x[1] for x in intarrays])]
       hostDecls += [
@@ -228,12 +233,12 @@ class Transformation(object):
         if self.tinfo is None:
           aidbytes = self.cs['nbytes']
         else:
-          aidtinfo = [x for x in self.tinfo.ivar_decls if x[2] == aid]
+          aidtinfo = [x for x in self.tinfo.ivar_decls if x[3] == aid]
           if len(aidtinfo) == 0:
             raise Exception('orio.module.loop.submodule.cuda.transformation: %s: unknown input variable argument: "%s"' % aid)
           else:
             aidtinfo = aidtinfo[0]
-          aidbytes = BinOpExp(IdentExp(aidtinfo[3][0]), FunCallExp(IdentExp('sizeof'), [IdentExp(aidtinfo[1])]), BinOpExp.MUL)
+          aidbytes = BinOpExp(IdentExp(aidtinfo[4][0]), FunCallExp(IdentExp('sizeof'), [IdentExp(aidtinfo[2])]), BinOpExp.MUL)
         mallocs += [
           ExpStmt(FunCallExp(IdentExp('cudaMalloc'),
                              [UnaryExp(IdentExp(daid), UnaryExp.ADDRESSOF),
@@ -290,12 +295,12 @@ class Transformation(object):
         if self.tinfo is None:
           aidbytes = FunCallExp(IdentExp('sizeof'), [IdentExp(aid)])
         else:
-          aidtinfo = [x for x in self.tinfo.ivar_decls if x[2] == aid]
+          aidtinfo = [x for x in self.tinfo.ivar_decls if x[3] == aid]
           if len(aidtinfo) == 0:
             raise Exception('orio.module.loop.submodule.cuda.transformation: %s: unknown input variable argument: "%s"' % aid)
           else:
             aidtinfo = aidtinfo[0]
-          aidbytes = BinOpExp(IdentExp(aidtinfo[3][0]), FunCallExp(IdentExp('sizeof'), [IdentExp(aidtinfo[1])]), BinOpExp.MUL)
+          aidbytes = BinOpExp(IdentExp(aidtinfo[4][0]), FunCallExp(IdentExp('sizeof'), [IdentExp(aidtinfo[2])]), BinOpExp.MUL)
         mallocs += [
           ExpStmt(FunCallExp(IdentExp('cudaMalloc'),
                              [UnaryExp(IdentExp(daid), UnaryExp.ADDRESSOF),
@@ -383,12 +388,12 @@ class Transformation(object):
             if self.tinfo is None:
               raidbytes = self.cs['nbytes']
             else:
-              raidtinfo = [x for x in self.tinfo.ivar_decls if x[2] == raid]
+              raidtinfo = [x for x in self.tinfo.ivar_decls if x[3] == raid]
               if len(raidtinfo) == 0:
                 raise Exception('orio.module.loop.submodule.cuda.transformation: %s: unknown input variable argument: "%s"' % aid)
               else:
                 raidtinfo = raidtinfo[0]
-              raidbytes = BinOpExp(IdentExp(raidtinfo[3][0]), FunCallExp(IdentExp('sizeof'), [IdentExp(raidtinfo[1])]), BinOpExp.MUL)
+              raidbytes = BinOpExp(IdentExp(raidtinfo[4][0]), FunCallExp(IdentExp('sizeof'), [IdentExp(raidtinfo[2])]), BinOpExp.MUL)
             d2hcopys += [
               ExpStmt(FunCallExp(IdentExp('cudaMemcpy'),
                                  [IdentExp(raid), IdentExp(draid),
@@ -448,7 +453,8 @@ class Transformation(object):
         args = [self.model['inputsize']] + self.model['ubounds'] + self.model['intscalars'] \
           + [IdentExp(x[1]) for x in self.model['intarrays']] \
           + [IdentExp(x) for x in self.model['scalars']] \
-          + [IdentExp(x[1]) for x in self.model['idents']]
+          + [IdentExp(x[1]) for x in self.model['idents']] \
+          + [IdentExp(x) for x in self.model['managed']]
         kernell_call = ExpStmt(FunCallExp(IdentExp(self.state['dev_kernel_name']+'<<<dimGrid,dimBlock>>>'), args))# + self.state['domainArgs']))
         kernell_calls += [kernell_call]
       else:
@@ -458,8 +464,8 @@ class Transformation(object):
           args    += [IdentExp(arg)]
           argsrem += [IdentExp(arg)]
         # adjust array args using offsets
-        dev_array_idss = [x[1] for x in self.model['arrays']]
-        for _,arg in self.model['idents']:
+        dev_array_idss = [x[1] for x in self.model['arrays']] + self.model['managed']
+        for _,arg in self.model['idents'] + [(x, x) for x in self.model['managed']]:
           if arg in dev_array_idss:
             args    += [BinOpExp(IdentExp(arg), self.cs['soffset'], BinOpExp.ADD)]
             argsrem += [BinOpExp(IdentExp(arg), self.cs['soffset'], BinOpExp.ADD)]
@@ -674,22 +680,30 @@ class Transformation(object):
         scalar_ids = list(lbi.difference(array_ids).difference(ktempdbls))
         dev = self.cs['dev']
         lbi = lbi.difference(scalar_ids+ktempdbls)
-        idents = list(lbi)
+        idents = {i[3]:(i[2]+'*') for i in self.tinfo.ivar_decls if i[3] in lbi}
+        idents = dict({i[3]:i[2] for i in self.tinfo.ivar_decls if i[3] in scalar_ids}, **idents)
+
         if self.model['isReduction']:
-          idents += [lhs_ids[0]]
-        self.model['idents']  = [(x, dev+x) for x in idents]
+            for i in self.tinfo.ivar_decls:
+                if lhs_ids[0] == i:
+                    idents = dict({lhs_ids[0]: i[2]}, **idents)
+
+        self.model['managed'] = [x[3] for x in self.tinfo.ivar_decls if x[1] is True]
+        self.model['idents']  = {(x, dev+x):idents[x] for x in idents if x not in self.model['managed']}
         self.model['scalars'] = scalar_ids
-        self.model['arrays']  = [(x, dev+x) for x in array_ids]
+        self.model['arrays']  = [(x, dev+x) for x in array_ids if x not in self.model['managed']]
         self.model['inputsize'] = IdentExp(ubound_ids[0])
         self.model['ubounds'] = [IdentExp(x) for x in ubound_ids[1:]]
         self.model['intscalars'] = [IdentExp(x) for x in kdeclints]
-        self.model['intarrays']  = [(x, dev+x) for x in intarrays]
+        self.model['intarrays']  = [(x, dev+x) for x in intarrays if x not in self.model['managed']]
         
-        # create parameter decls
+        # create parameter decls #TODO I think this part is wrong as it doesn't pick up float and int types. Parsa 2/20/2021
         kernelParams += [FieldDecl('int', x) for x in self.model['intscalars']]
         kernelParams += [FieldDecl('int*', x) for x in intarrays]
-        kernelParams += [FieldDecl('double', x) for x in scalar_ids]
-        kernelParams += [FieldDecl('double*', x) for x in lbi]
+        # kernelParams += [FieldDecl('double', x) for x in scalar_ids]
+        # kernelParams += [FieldDecl('double*', x) for x in lbi]
+        kernelParams += [FieldDecl(idents[i], i) for i in idents]
+
 
         collectLhsExprs = lambda n: [n.lhs] if isinstance(n, BinOpExp) and n.op_type == BinOpExp.EQ_ASGN else []
         loop_lhs_exprs = loop_lib.collectNode(collectLhsExprs, loop_body)
@@ -785,10 +799,11 @@ class Transformation(object):
         if self.cacheBlocks and not isinstance(loop_body3, ForStmt):
             for var in array_ids:
                 sharedVar = 'shared_' + var
-                kernelStmts += [
-                    # __shared__ double shared_var[threadCount];
-                    VarDecl('__shared__ double', [sharedVar + '[' + str(self.threadCount) + ']'])
-                ]
+                if idents[var].endswith('*'):
+                    kernelStmts += [
+                        # __shared__ double shared_var[threadCount];
+                        VarDecl('__shared__ ' + idents[var][:-1], [sharedVar + '[' + str(self.threadCount) + ']'])
+                    ]
                 sharedVarExp = ArrayRefExp(IdentExp(sharedVar), threadIdx)
                 varExp       = ArrayRefExp(IdentExp(var), index_id)
                 

@@ -103,11 +103,18 @@ class PerfTestCodeGen(object):
          - memory allocations for input arrays (that are dynamic arrays)
         '''
 
+        def genCudaMalloc(mallocs, vtype, vname, vdims, rhs, iter_vars):
+            size = ' * '.join(vdims)
+            if size:
+                size += ' * sizeof(%s)' % (vtype)
+                code = 'cudaMallocManaged((void **)(&%s), %s);' % (vname, size)
+                mallocs.append(code)
+
         # generate iteration variables
         max_dim = 0
         for _, _, _, _, vdims, _ in input_decls:
             max_dim = max(max_dim, len(vdims))
-        iter_vars = ['i%s' % x for x in range(1, max_dim+1)]
+        iter_vars = ['i%s' % x for x in range(1, max_dim)]
 
         # generate code for the declaration of the iteration variables
         if len(iter_vars) == 0:
@@ -118,28 +125,32 @@ class PerfTestCodeGen(object):
         # generate memory allocations for dynamic input arrays
         mallocs = []
         for is_static, is_managed, vtype, vname, vdims, rhs in input_decls:
-            
-            if len(vdims) > 0 and not is_static:
-                for i in range(0, len(vdims)):
-                    loop_code = ''
-                    if i > 0:
-                        ivar = iter_vars[i-1]
-                        dim = vdims[i-1]
-                        loop_code += (' ' * (i-1)) + \
-                            'for (%s=0; %s<%s; %s++) {\n' % (ivar, ivar, dim, ivar)
-                    dim_code = ''
-                    if i > 0:
-                        dim_code = '[%s]' % ']['.join(iter_vars[:i])
-                    rhs_code = ('(%s%s) malloc((%s) * sizeof(%s%s))' %
-                                (vtype, '*' * (len(vdims) - i),
-                                 vdims[i], vtype, '*' * (len(vdims) - i - 1)))
-                    loop_body_code = (' ' * i) + '%s%s = %s;' % (vname, dim_code, rhs_code)
-                    code = loop_code + loop_body_code
-                    if code:
-                        mallocs.append(code)
-                brace_code = '}' * (len(vdims) - 1)
-                if brace_code:
-                    mallocs.append(brace_code)
+            if not is_static:
+                if is_managed:
+                    genCudaMalloc(mallocs, vtype, vname, vdims, rhs, iter_vars)
+                else:
+                    if len(vdims) > 0:
+                        for i in range(0, len(vdims)):
+                            loop_code = ''
+                            if i > 0:
+                                ivar = iter_vars[i-1]
+                                dim = vdims[i-1]
+                                loop_code += (' ' * (i-1)) + \
+                                    'for (%s=0; %s<%s; %s++) {\n' % (ivar, ivar, dim, ivar)
+                            dim_code = ''
+                            if i > 0:
+                                dim_code = '[%s]' % ']['.join(iter_vars[:i])
+
+                            rhs_code = ('(%s%s) malloc((%s) * sizeof(%s%s))' %
+                                        (vtype, '*' * (len(vdims) - i),
+                                         vdims[i], vtype, '*' * (len(vdims) - i - 1)))
+                            loop_body_code = (' ' * i) + '%s%s = %s;' % (vname, dim_code, rhs_code)
+                            code = loop_code + loop_body_code
+                            if code:
+                                mallocs.append(code)
+                        brace_code = '}' * (len(vdims) - 1)
+                        if brace_code:
+                            mallocs.append(brace_code)
         
         # return an empty code if no dynamic memory allocation is needed
         if len(mallocs) == 0:
@@ -157,7 +168,10 @@ class PerfTestCodeGen(object):
         dalloc_code = ''
         for is_static, is_managed, _, vname, vdims, _ in input_decls:
           if len(vdims) > 0 and not is_static:
-            dalloc_code += '  free('+vname+');'+r'\n';
+            if is_managed:
+                dalloc_code += '  cudaFree(' + vname + ');' + r'\n';
+            else:
+                dalloc_code += '  free('+vname+');'+r'\n';
         
         return dalloc_code
 
@@ -345,14 +359,21 @@ const char *__wattprof_conf_file = "1_conf.rnp";
         else:
             init_code = 'void %s() {\n%s\n}\n' % (self.init_func_name, self.init_code)
 
-        init_code += 'int main (int argc, char *argv[]) {\n'
+        if Globals().language != 'cuda':
+            init_code += 'int main (int argc, char *argv[]) {\n'
+
         # Default timing code
-        begin_inner_measure_code = 'orio_t_start = getClock();'
-        end_inner_measure_code = '''
-    orio_t_end = getClock();
-    orio_t = orio_t_end - orio_t_start;
-    printf("{'/*@ coordinate @*/' : %g}\\\\n", orio_t);
-    '''
+        if Globals().language != 'cuda':
+            begin_inner_measure_code = 'orio_t_start = getClock();'
+            end_inner_measure_code = '''
+                                    orio_t_end = getClock();
+                                    orio_t = orio_t_end - orio_t_start;
+                                    printf("{'/*@ coordinate @*/' : %g}\\\\n", orio_t);
+                                    '''
+        else:
+            end_inner_measure_code = ''
+            begin_inner_measure_code = ''
+
         begin_outer_measure_code = ''
         end_outer_measure_code = ''
         if self.power:
@@ -566,7 +587,7 @@ class PerfTestCodeGenFortran:
         
         # generate memory allocations for dynamic input arrays
         mallocs = []
-        for is_static, is_manged, vt, vname, vdims, rhs in input_decls:
+        for is_static, is_managed, vt, vname, vdims, rhs in input_decls:
 
             if len(vdims) > 0 and not is_static:
                 dim_code = '(%s)' % ')('.join(vdims)
