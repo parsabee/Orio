@@ -465,7 +465,7 @@ class Transformation(object):
           argsrem += [IdentExp(arg)]
         # adjust array args using offsets
         dev_array_idss = [x[1] for x in self.model['arrays']] + self.model['managed']
-        for _,arg in self.model['idents'] + [(x, x) for x in self.model['managed']]:
+        for _,arg in list(self.model['idents'].keys()) + [(x, x) for x in self.model['managed']]:
           if arg in dev_array_idss:
             args    += [BinOpExp(IdentExp(arg), self.cs['soffset'], BinOpExp.ADD)]
             argsrem += [BinOpExp(IdentExp(arg), self.cs['soffset'], BinOpExp.ADD)]

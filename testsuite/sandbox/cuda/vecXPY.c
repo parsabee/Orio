@@ -8,10 +8,10 @@ void VecXPY(int n, MX *X, MX *Y) {
   register int i;
   /*@ begin PerfTuning(
         def performance_params {
-          param TC[] = range(32,33);
-          param BC[] = range(14,15);
-          param SC[] = range(2,3);
-          param CB[] = [True];
+          param TC[] = [32, 64];
+          param BC[] = range(14,29,14);
+          param SC[] = range(1,3);
+          param CB[] = [True, False];
           param PL[] = [16];
           param CFLAGS[] = [''];
         }

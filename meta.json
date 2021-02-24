@@ -1,1 +1,1 @@
-{"loop_transformations": [], "size__N": 128, "coordinate": [0, 0, 0, 0, 0, 0], "average_cost": Infinity, "all_costs": [Infinity], "mean_transfer": Infinity}
+{"loop_transformations": [], "size_N": 1000, "LastCounter": 16, "TC": 64, "BC": 28, "SC": 2, "CB": false, "PL": 16, "CFLAGS": "", "SourceName": "/home/parsa/Development/Orio/testsuite/sandbox/cuda/vecXPY.c", "src_filenames": "/home/parsa/Development/Orio/testsuite/sandbox/cuda/vecXPY.c", "coordinate": [1, 1, 1, 1, 0, 0], "average_cost": 0.016448, "all_costs": [0.016448], "mean_transfer": 0.02912}
