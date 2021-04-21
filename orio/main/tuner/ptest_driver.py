@@ -57,9 +57,9 @@ class PerfTestDriver:
         self.original_src_name = self.__PTEST_FNAME + '_original' + self.ext
         self.exe_name = self.__PTEST_FNAME + '.exe'
         self.original_exe_name = self.__PTEST_FNAME + '_original.exe'
-        if self.language == 'cuda' or self.language == 'opencl':
-            self.obj_name = self.__PTEST_FNAME + '.o'
-            self.original_obj_name = self.__PTEST_FNAME + '_original.o'
+        # if self.language == 'cuda' or self.language == 'opencl':
+        self.obj_name = self.__PTEST_FNAME + '.o'
+        self.original_obj_name = self.__PTEST_FNAME + '_original.o'
 
         if not self.tinfo.timer_file:
             if self.language == 'c':

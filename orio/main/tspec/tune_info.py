@@ -1045,7 +1045,7 @@ class TuningInfoGen:
                 (search_algo, search_time_limit,
                  search_total_runs, search_use_z3, search_resume,
                  search_opts) = self.__genSearchInfo(body_stmt_seq, line_no)
-                default_s_algo, default_s_tlimit, default_s_truns, default_s_resume, _ = search_info
+                default_s_algo, default_s_tlimit, default_s_truns, default_s_resume, _, _= search_info
                 if search_algo == None:
                     search_algo = default_s_algo
                 if search_time_limit == None:
