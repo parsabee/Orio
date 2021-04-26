@@ -2,6 +2,7 @@
 
 # Orio-generated
 __orio_perftest*.exe
+__orio_perftest*
 tuning*.log
 
 # C extensions

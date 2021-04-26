@@ -2,11 +2,11 @@ void MatMatMult(double* A, double* B, double* C, int m, int n, int p) {
 
 /*@ begin PerfTuning (
     def performance_params {
-        param TC[]  = range(32,65,32);
-        param BC[]  = range(14,28,14);
-        param UIF[] = range(1, 5);
-        param PL[]  = [16, 48];
-        param SC[] = [1, 2, 4, 8];
+        param thread_count[]  = [32, 64];
+        param block_count[]  = range(14,28,14);
+        param inner_loop_unroll_fact[] = range(1, 5);
+        param preferred_L1_cache[]  = [16, 48];
+        param stream_count[] = [1];
         param CFLAGS[] = ['-O3'];
     }
 
@@ -48,7 +48,11 @@ int m = M, p = K, n = N;
 #define min(x,y)    ((x) < (y)? (x) : (y))
 
 /*@ begin Loop(
-  transform CUDA(threadCount=TC, blockCount=BC, preferL1Size=PL, unrollInner=UIF)
+  transform CUDA(threadCount=thread_count,
+                 blockCount=block_count,
+                 preferL1Size=preferred_L1_cache,
+                 unrollInner=inner_loop_unroll_fact,
+                 streamCount=stream_count)
   for(i=0; i<=m-1; i++)
     for(j=0; j<=n-1; j++) {
       for(k=0; k<=p-1; k++){

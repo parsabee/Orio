@@ -164,12 +164,48 @@ class Transformation(object):
         # checking how many nested loops
 
         threads = self.cs['nthreads']
+
         self.newstmts['deviceDims'] = [
-            Comment('calculate device dimensions'),
+            Comment('calculate device dimensions with the cuda calculator'),
             VarDecl('dim3', ['dimGrid', 'dimBlock']),
-            ExpStmt(BinOpExp(IdentExp('dimBlock.x'), self.cs['nthreads'], BinOpExp.EQ_ASGN)),
-            ExpStmt(BinOpExp(IdentExp('dimGrid.x'), IdentExp(self.blockCount), BinOpExp.EQ_ASGN))
+            VarDecl('int', ['__tmpMinGridSize', '__tmpBlockSize']),
+            ExpStmt(
+                FunCallExp(
+                    IdentExp('cudaOccupancyMaxPotentialBlockSize'),
+                    [IdentExp('&__tmpMinGridSize'), IdentExp('&__tmpBlockSize'),
+                    IdentExp(self.state['dev_kernel_name'])]
+                )
+            ),
+            ExpStmt(
+                BinOpExp(
+                    IdentExp('dimGrid.x'),
+                    BinOpExp(
+                        ParenthExp(
+                            BinOpExp(
+                                IdentExp(self.model['inputsize']),
+                                BinOpExp(
+                                    IdentExp('__tmpBlockSize'),
+                                    NumLitExp(1, NumLitExp.INT),
+                                    BinOpExp.SUB
+                                ),
+                                BinOpExp.ADD
+                            )
+                        ),
+                        IdentExp('__tmpBlockSize'),
+                        BinOpExp.DIV
+                    ),
+                    BinOpExp.EQ_ASGN
+                )
+            ),
+            ExpStmt(BinOpExp(IdentExp('dimBlock.x'), IdentExp('__tmpBlockSize'), BinOpExp.EQ_ASGN)),
+            # ExpStmt(BinOpExp(IdentExp('dimGrid.x'), IdentExp('__tmpMinGridSize'), BinOpExp.EQ_ASGN))
         ]
+        # self.newstmts['deviceDims'] = [
+        #     Comment('calculate device dimensions'),
+        #     VarDecl('dim3', ['dimGrid', 'dimBlock']),
+        #     ExpStmt(BinOpExp(IdentExp('dimBlock.x'), self.cs['nthreads'], BinOpExp.EQ_ASGN)),
+        #     ExpStmt(BinOpExp(IdentExp('dimGrid.x'), IdentExp(self.blockCount), BinOpExp.EQ_ASGN))
+        # ]
 
     # -----------------------------------------------------------------------------------------------------------------
     def createStreamDecls(self):
@@ -1225,9 +1261,6 @@ class Transformation(object):
         # declare device variables
         self.createDVarDecls()
 
-        # calculate device dimensions
-        self.calcDims()
-
         # if streaming, divide vectors into chunks and asynchronously overlap copy-copy and copy-exec ops
         if self.streamCount > 1:
             self.createStreamDecls()
@@ -1237,6 +1270,11 @@ class Transformation(object):
 
         # kernel calls
         self.createKernelCalls()
+
+
+        # calculate device dimensions
+        self.calcDims()
+
         # end marshal resources
         # --------------------------------------------------------------------------------------------------------------
 
