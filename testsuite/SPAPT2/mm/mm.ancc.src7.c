@@ -6,7 +6,7 @@ void MatMatMult(double* A, double* B, double* C, int m, int n, int p) {
         param block_count[]  = range(14,28,14);
         param inner_loop_unroll_fact[] = range(1, 5);
         param preferred_L1_cache[]  = [16, 48];
-        param stream_count[] = [1];
+        param stream_count[] = [1, 2, 4, 8];
         param CFLAGS[] = ['-O3'];
     }
 
@@ -15,15 +15,13 @@ void MatMatMult(double* A, double* B, double* C, int m, int n, int p) {
         param CONT = 500;
         param NCONT = 500;
         param M = 500;
-        param N = 500;
-        param K = 500;
     }
 
     def input_vars
     {
-        decl static double A[M][K] = random;
-        decl static double B[K][N] = random;
-        decl static double C[M][N] = 0;
+        decl static double A[M * M] = random;
+        decl static double B[M * M] = random;
+        decl static double C[M * M] = 0;
     }
 
     def search
@@ -42,7 +40,7 @@ void MatMatMult(double* A, double* B, double* C, int m, int n, int p) {
     }
 ) @*/
 
-int m = M, p = K, n = N;
+int m = M, p = M, n = M;
 
 #define max(x,y)    ((x) > (y)? (x) : (y))
 #define min(x,y)    ((x) < (y)? (x) : (y))

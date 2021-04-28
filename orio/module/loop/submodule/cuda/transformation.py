@@ -35,6 +35,7 @@ class Transformation(object):
         self.canBe2D = False
         self.canBe3D = False
         self.tinfo = tinfo
+        self.useOccupancyCalc = False #TODO add managed to the list of parameters of threadCount and blockCount
         if self.tinfo is not None and self.streamCount > 1:
             ivarLists = [x for x in tinfo.ivar_decls if len(x[4]) > 0]
             ivarListLengths = set(reduce(lambda acc, item: acc + item[4], ivarLists, []))
@@ -162,50 +163,49 @@ class Transformation(object):
         '''Calculate device dimensions'''
 
         # checking how many nested loops
-
-        threads = self.cs['nthreads']
-
         self.newstmts['deviceDims'] = [
             Comment('calculate device dimensions with the cuda calculator'),
-            VarDecl('dim3', ['dimGrid', 'dimBlock']),
-            VarDecl('int', ['__tmpMinGridSize', '__tmpBlockSize']),
-            ExpStmt(
-                FunCallExp(
-                    IdentExp('cudaOccupancyMaxPotentialBlockSize'),
-                    [IdentExp('&__tmpMinGridSize'), IdentExp('&__tmpBlockSize'),
-                    IdentExp(self.state['dev_kernel_name'])]
-                )
-            ),
-            ExpStmt(
-                BinOpExp(
-                    IdentExp('dimGrid.x'),
-                    BinOpExp(
-                        ParenthExp(
-                            BinOpExp(
-                                IdentExp(self.model['inputsize']),
-                                BinOpExp(
-                                    IdentExp('__tmpBlockSize'),
-                                    NumLitExp(1, NumLitExp.INT),
-                                    BinOpExp.SUB
-                                ),
-                                BinOpExp.ADD
-                            )
-                        ),
-                        IdentExp('__tmpBlockSize'),
-                        BinOpExp.DIV
-                    ),
-                    BinOpExp.EQ_ASGN
-                )
-            ),
-            ExpStmt(BinOpExp(IdentExp('dimBlock.x'), IdentExp('__tmpBlockSize'), BinOpExp.EQ_ASGN)),
-            # ExpStmt(BinOpExp(IdentExp('dimGrid.x'), IdentExp('__tmpMinGridSize'), BinOpExp.EQ_ASGN))
+            VarDecl('dim3', ['dimGrid', 'dimBlock'])
         ]
-        # self.newstmts['deviceDims'] = [
-        #     Comment('calculate device dimensions'),
-        #     VarDecl('dim3', ['dimGrid', 'dimBlock']),
-        #     ExpStmt(BinOpExp(IdentExp('dimBlock.x'), self.cs['nthreads'], BinOpExp.EQ_ASGN)),
-        #     ExpStmt(BinOpExp(IdentExp('dimGrid.x'), IdentExp(self.blockCount), BinOpExp.EQ_ASGN))
-        # ]
+
+        if self.useOccupancyCalc:
+            self.newstmts['deviceDims'] += [
+                VarDecl('int', ['__tmpMinGridSize', '__tmpBlockSize']),
+                ExpStmt(
+                    FunCallExp(
+                        IdentExp('cudaOccupancyMaxPotentialBlockSize'),
+                        [IdentExp('&__tmpMinGridSize'), IdentExp('&__tmpBlockSize'),
+                         IdentExp(self.state['dev_kernel_name'])]
+                    )
+                ),
+                ExpStmt(
+                    BinOpExp(
+                        IdentExp('dimGrid.x'),
+                        BinOpExp(
+                            ParenthExp(
+                                BinOpExp(
+                                    IdentExp(self.model['inputsize']),
+                                    BinOpExp(
+                                        IdentExp('__tmpBlockSize'),
+                                        NumLitExp(1, NumLitExp.INT),
+                                        BinOpExp.SUB
+                                    ),
+                                    BinOpExp.ADD
+                                )
+                            ),
+                            IdentExp('__tmpBlockSize'),
+                            BinOpExp.DIV
+                        ),
+                        BinOpExp.EQ_ASGN
+                    )
+                ),
+                ExpStmt(BinOpExp(IdentExp('dimBlock.x'), IdentExp('__tmpBlockSize'), BinOpExp.EQ_ASGN))
+            ]
+        else:
+            self.newstmts['deviceDims'] += [
+                ExpStmt(BinOpExp(IdentExp('dimBlock.x'), self.cs['nthreads'], BinOpExp.EQ_ASGN)),
+                ExpStmt(BinOpExp(IdentExp('dimGrid.x'), IdentExp(self.blockCount), BinOpExp.EQ_ASGN))
+            ]
 
     # -----------------------------------------------------------------------------------------------------------------
     def createStreamDecls(self):
