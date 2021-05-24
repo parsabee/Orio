@@ -29,9 +29,9 @@ void adi(double* X, double* A, double* B) {
   }
   
   def input_vars {
-  decl managed double X[N * (N+20)] = random;
-  decl managed double A[N * (N+20)] = random;
-  decl managed double B[N * (N+20)] = random;
+  decl static double X[N * (N+20)] = random;
+  decl static double A[N * (N+20)] = random;
+  decl static double B[N * (N+20)] = random;
   }
 ) @*/   
 

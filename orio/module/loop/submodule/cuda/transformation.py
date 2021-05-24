@@ -526,9 +526,9 @@ class Transformation(object):
             # this will generate 2 cont int n parameters for the kernel(error), we can drop duplicates
             # but it will be troublesome when using multiple streams, I think the best way to do this is to
             # rename duplicates
-            args = [self.cs['chunklen']] + self.model['ubounds'][0:] + self.model['intscalars'] + [IdentExp(x[1]) for x in
+            args = [self.cs['chunklen']] + self.model['intscalars'] + [IdentExp(x[1]) for x in
                                                                                                self.model['intarrays']]
-            argsrem = [self.cs['chunkrem']] + self.model['ubounds'][0:] + self.model['intscalars'] + [IdentExp(x[1]) for x
+            argsrem = [self.cs['chunkrem']] + self.model['intscalars'] + [IdentExp(x[1]) for x
                                                                                                   in self.model[
                                                                                                       'intarrays']]
             args = self.__pruneParams(args)
@@ -753,8 +753,8 @@ class Transformation(object):
         ubound_ids = reduce(lambda acc, item: acc + item, ubound_idss, [])
 
         kernelParams = []
-        if (self.streamCount > 1):
-            kernelParams += [FieldDecl('const int', self.cs['chunklen'])]
+        # if (self.streamCount > 1):
+        #     kernelParams += [FieldDecl('const int', self.cs['chunklen'])]
         kernelParams += [FieldDecl('const int', x) for x in ubound_ids]
 
 

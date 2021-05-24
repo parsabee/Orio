@@ -1,4 +1,4 @@
-void MatMatMult(double* A, double* B, double* C, int m, int n, int p) {
+void MatMatMult(double* A, double* B, double* C, int n) {
 
 /*@ begin PerfTuning (
     def performance_params {
@@ -40,7 +40,7 @@ void MatMatMult(double* A, double* B, double* C, int m, int n, int p) {
     }
 ) @*/
 
-int m = M, p = M, n = M;
+int n = M;
 
 #define max(x,y)    ((x) > (y)? (x) : (y))
 #define min(x,y)    ((x) < (y)? (x) : (y))
@@ -51,10 +51,10 @@ int m = M, p = M, n = M;
                  preferL1Size=preferred_L1_cache,
                  unrollInner=inner_loop_unroll_fact,
                  streamCount=stream_count)
-  for(i=0; i<=m-1; i++)
+  for(i=0; i<=n-1; i++)
     for(j=0; j<=n-1; j++) {
-      for(k=0; k<=p-1; k++){
-        C[i*n+j] += A[i*p+k]*B[k*n+j];
+      for(k=0; k<=n-1; k++){
+        C[i*n+j] += A[i*n+k]*B[k*n+j];
       }
     }
 ) @*/
