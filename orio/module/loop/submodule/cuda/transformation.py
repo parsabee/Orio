@@ -108,6 +108,18 @@ class Transformation(object):
             'testNewOutput': []
         }
 
+    def __pruneParams(self, kernelParams):
+        newParams = []
+        def isInNewParams(elm):
+            for p in newParams:
+                if p.name == elm.name: return True
+            return False
+
+        for p in kernelParams:
+            if not isInNewParams(p):
+                newParams.append(p)
+        return newParams
+
     # -----------------------------------------------------------------------------------------------------------------
     def createDVarDecls(self):
         '''Create declarations of device-side variables corresponding to host-side variables'''
@@ -501,15 +513,26 @@ class Transformation(object):
                    + [IdentExp(x) for x in self.model['scalars']] \
                    + [IdentExp(x[1]) for x in self.model['idents']] \
                    + [IdentExp(x) for x in self.model['managed']]
+            args = self.__pruneParams(args)
             kernell_call = ExpStmt(FunCallExp(IdentExp(self.state['dev_kernel_name'] + '<<<dimGrid,dimBlock>>>'),
                                               args))  # + self.state['domainArgs']))
             kernell_calls += [kernell_call]
         else:
-            args = [self.cs['chunklen']] + self.model['ubounds'] + self.model['intscalars'] + [IdentExp(x[1]) for x in
+
+            #TODO: when generating code for nested loops, if the upper bound of the inner loops are the same\
+            # as the outer loops: for example following block has upperbounds of n and n:
+            # for(i = 0; i <= n-1; i++)
+            #     for(j = 0; j <= n-1; j++)
+            # this will generate 2 cont int n parameters for the kernel(error), we can drop duplicates
+            # but it will be troublesome when using multiple streams, I think the best way to do this is to
+            # rename duplicates
+            args = [self.cs['chunklen']] + self.model['ubounds'][0:] + self.model['intscalars'] + [IdentExp(x[1]) for x in
                                                                                                self.model['intarrays']]
-            argsrem = [self.cs['chunkrem']] + self.model['ubounds'] + self.model['intscalars'] + [IdentExp(x[1]) for x
+            argsrem = [self.cs['chunkrem']] + self.model['ubounds'][0:] + self.model['intscalars'] + [IdentExp(x[1]) for x
                                                                                                   in self.model[
                                                                                                       'intarrays']]
+            args = self.__pruneParams(args)
+            argsrem = self.__pruneParams(argsrem)
             for arg in self.model['scalars']:
                 args += [IdentExp(arg)]
                 argsrem += [IdentExp(arg)]
@@ -728,7 +751,12 @@ class Transformation(object):
         # create decls for ubound_exp id's, assuming all ids are int's
         ubound_idss = [loop_lib.collectNode(collectIdents, x) for x in [ubound_exp]+([ubound_exp2] if nestedLoop else [])]
         ubound_ids = reduce(lambda acc, item: acc + item, ubound_idss, [])
-        kernelParams = [FieldDecl('const int', x) for x in ubound_ids]
+
+        kernelParams = []
+        if (self.streamCount > 1):
+            kernelParams += [FieldDecl('const int', self.cs['chunklen'])]
+        kernelParams += [FieldDecl('const int', x) for x in ubound_ids]
+
 
         arraySubs = set(
             [x for x in loop_lib.collectNode(collectArraySubscripts, loop_body) if x not in (indices + ubound_ids)])
@@ -779,9 +807,9 @@ class Transformation(object):
         self.model['scalars'] = scalar_ids
         self.model['arrays'] = [(x, dev + x) for x in array_ids if x not in self.model['managed']]
         self.model['inputsize'] = IdentExp(ubound_ids[0])
-        self.model['ubounds'] = [IdentExp(x) for x in ubound_ids[1:]]
-        self.model['intscalars'] = [IdentExp(x) for x in kdeclints]
-        self.model['intarrays'] = [(x, dev + x) for x in intarrays if x not in self.model['managed']]
+        self.model['ubounds'] = self.__pruneParams([IdentExp(x) for x in ubound_ids[1:]])
+        self.model['intscalars'] = self.__pruneParams([IdentExp(x) for x in kdeclints])
+        self.model['intarrays'] = self.__pruneParams([(x, dev + x) for x in intarrays if x not in self.model['managed']])
 
         # create parameter decls #TODO I think this part is wrong as it doesn't pick up float and int types. Parsa 2/20/2021 #FIXED
         kernelParams += [FieldDecl('int', x) for x in self.model['intscalars']]
@@ -1238,7 +1266,7 @@ class Transformation(object):
             redKernStmts += reduceStmts
         # end multi-stage reduction kernel
         # --------------------------------------------------
-
+        kernelParams = self.__pruneParams(kernelParams)
         dev_kernel = FunDecl(dev_kernel_name, 'void', ['__global__'], kernelParams, CompStmt(kernelStmts))
         self.state['dev_kernel_name'] = dev_kernel_name
 
